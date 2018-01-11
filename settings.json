@@ -1,0 +1,16 @@
+{
+  "version": "",
+  "cors": "*",
+  "mongo": {
+    "user": "",
+    "pass": ""
+  },
+  "chain": {
+    "kovan": {
+      "factory": "0x93ffc328d601c4c5e9cc3c8d257e9afdaf5b0ac0"
+    },
+    "main": {
+      "factory": ""
+    }
+  }
+}

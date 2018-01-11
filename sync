@@ -1,0 +1,180 @@
+#! /usr/bin/env node
+
+const mongoose = require('./schema').mongoose;
+const settings = require('./settings');
+const Web3 = require('web3');
+var Queue = require('sync-queue');
+
+const web3 = new Web3();
+let port = 8545;
+process.argv.forEach(function (v, i) {
+  if (v === '--port' && typeof process.argv[i + 1] !== 'undefined') {
+    port = process.argv[i + 1];
+  }
+});
+web3.setProvider(new Web3.providers.HttpProvider(`http://localhost:${port}`));
+
+console.log(`MongoDB located at http://localhost:${port}`);
+
+const proxyfactoryAbi = require('./abi/dsproxyfactory').abi;
+
+const networkStatus = {};
+
+const checkNetwork = () => {
+  web3.version.getNode(error => {
+    const isConnected = !error;
+
+    // Check if we are synced
+    if (isConnected) {
+      web3.eth.getBlock('latest', (e, res) => {
+        if (res.number >= networkStatus.latestBlock) {
+          networkStatus.latestBlock = res.number;
+          networkStatus.outOfSync = e != null || ((new Date().getTime() / 1000) - res.timestamp) > 600;
+        }
+      });
+    }
+
+    // Check which network are we connected to
+    // https://github.com/ethereum/meteor-dapp-wallet/blob/90ad8148d042ef7c28610115e97acfa6449442e3/app/client/lib/ethereum/walletInterface.js#L32-L46
+    if (networkStatus.isConnected !== isConnected) {
+      networkStatus.isConnected = isConnected;
+      if (isConnected === true) {
+        web3.eth.getBlock(0, (e, res) => {
+          let network = false;
+          if (!e) {
+            switch (res.hash) {
+              case '0xa3c565fc15c7478862d50ccd6561e3c06b24cc509bf388941c25ea985ce32cb9':
+                network = 'kovan';
+                break;
+              case '0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3':
+                network = 'main';
+                break;
+              default:
+                console.log('setting network to private');
+                console.log('res.hash:', res.hash);
+                network = 'private';
+            }
+          }
+          if (networkStatus.network !== network) {
+            const db = `proxy-directory-${network}${settings.version ? `-${settings.version}` : ''}`;
+            mongoose.connect(`mongodb://localhost/${db}`, { useMongoClient: true }, (e) => {
+              if (!e) {
+                console.log(`Node synced from ${network} network. Initiating system...`);
+                console.log(`Using DB: ${db}`);
+                if (varsInterval) clearInterval(varsInterval);
+                web3.reset(true);
+                init(network);
+              }
+            });
+          }
+        });
+      } else {
+        console.log('Node not syncing. Waiting for reconnection...')
+        networkStatus.isConnected = isConnected;
+        networkStatus.network = false;
+        networkStatus.latestBlock = 0;
+      }
+    }
+  });
+}
+
+checkNetwork();
+setInterval(checkNetwork, 3000);
+
+const methodSig = (method) => {
+  return web3.sha3(method).substring(0, 10);
+}
+
+const getAddress = (object, name) => {
+  const p = new Promise((resolve, reject) => {
+    object[name].call((e, r) => {
+      if (!e) {
+        resolve(r);
+      } else {
+        reject(e);
+      }
+    });
+  });
+  return p;
+}
+
+let varsInterval = null;
+
+const init = (network) => {
+  if (!settings.chain[network].factory) {
+    console.log('factory address is missing in settings.json for chain: ' + network);
+    console.log('exiting...');
+    process.exit();
+  }
+  const proxyfactory = web3.eth.contract(proxyfactoryAbi).at(settings.chain[network].factory);
+  console.log('Facotry: ', proxyfactory.address);
+  executeSync(proxyfactory);
+}
+
+const executeSync = (proxyfactory) => {
+  const Directory = mongoose.model('Directory');
+
+  const getNewProxies = () => {
+    return new Promise((resolve, reject) => {
+      Directory.collection.find().sort({ 'blockNumber': -1 }).limit(1).toArray((e, r) => {
+        if (!e) {
+          const fromBlock = (r.length === 0 ? 0 : parseInt(r[0].blockNumber, 10) + 1);
+          proxyfactory.Created({}, { fromBlock }).get((e2, proxyInfo) => {
+            if (!e2) {
+              if (proxyInfo.length === 0) {
+                resolve(fromBlock);
+              }
+              var proxyQueue = new Queue();
+              for (let i = 0; i < proxyInfo.length; i++) {
+                proxyQueue.place(() =>
+                  Directory.collection.insert({ proxy: proxyInfo[i].args.proxy, owner: proxyInfo[i].args.sender, blockNumber: proxyInfo[i].blockNumber },
+                  () => {
+                    proxyQueue.next();
+                    if (i === proxyInfo.length - 1) {
+                      resolve(proxyInfo[i].blockNumber + 1);
+                    }
+                  })
+                );
+              }
+            } else {
+              reject(e2);
+            }
+          });
+        } else {
+          reject(e);
+        }
+      });
+    });
+  }
+  const executeGetNewProxies = () => {
+    getNewProxies().then(fromBlock => {
+      console.log(`Initial New Proxies load done successfully. Setting up New Proxies filter from block ${fromBlock}...`);
+      var getNewProxiesQueue = new Queue();
+      proxyfactory.Created({}, { fromBlock }, e2 => {
+        if (!e2) {
+          console.log('New Proxy filter detected, getting logs');
+          const execute = () => getNewProxies().then(
+            () => {
+              console.log('New Proxies logs updated');
+              getNewProxiesQueue.next();
+            },
+            e3 => {
+              console.log('Error getting New Proxies logs, trying again...', e3);
+              execute();
+            }
+          )
+          getNewProxiesQueue.place(() =>
+            execute()
+          );
+        }
+      });
+    }, e => {
+      console.log('Error getting initial New Proxies load', e);
+      console.log('Re-starting initial New Proxies load...');
+      executeGetNewProxies();
+    });
+  }
+  console.log('Starting initial New Proxies load...');
+  executeGetNewProxies();
+  //
+}

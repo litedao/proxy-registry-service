@@ -1,0 +1,26 @@
+{
+  "name": "proxy-directory-service",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "mongoose": "^4.11.1",
+    "sync-queue": "0.0.2",
+    "web3": "^0.19.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "service": "node service",
+    "sync": "node sync",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gbalabasquer/proxy-directory.git"
+  },
+  "author": "",
+  "bugs": {
+    "url": "https://github.com/gbalabasquer/proxy-directory/issues"
+  },
+  "homepage": "https://github.com/gbalabasquer/proxy-directory#readme"
+}

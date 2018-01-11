@@ -1,0 +1,31 @@
+#! /usr/bin/env node
+
+const mongoose = require('./schema.js').mongoose;
+const settings = require('./settings');
+
+let network = 'main';
+process.argv.forEach(function (v, i) {
+  if (v === '--network' && typeof process.argv[i + 1] !== 'undefined') {
+    network = process.argv[i + 1];
+  }
+});
+
+const db = `proxy-directory-${network}${settings.version ? `-${settings.version}` : ''}`;
+console.log(`Cleaning DB ${db}...`);
+
+mongoose.connect(`mongodb://localhost/${db}`, { useMongoClient: true }, (e, db) => {
+  const deleteDB = (name) => {
+    return new Promise((resolve, reject) => {
+      db.collection(name).drop((e, r) => {
+        resolve(e || !r ? `${name} collection not found` : `${name} collection deleted`);
+      });
+    });
+  }
+  if (!e) {
+    const promises = [deleteDB('directories')];
+    Promise.all(promises).then((r) => {
+      r.forEach(value => console.log(value));
+      process.exit();
+    });
+  }
+});
