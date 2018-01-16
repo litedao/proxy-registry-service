@@ -1,4 +1,4 @@
-# Proxy Directory Service
+# Proxy Registry Service
 
 ## Sync Blockchain data to MongoDB
 
