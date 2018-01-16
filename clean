@@ -10,7 +10,7 @@ process.argv.forEach(function (v, i) {
   }
 });
 
-const db = `proxy-directory-${network}${settings.version ? `-${settings.version}` : ''}`;
+const db = `proxy-registry-${network}${settings.version ? `-${settings.version}` : ''}`;
 console.log(`Cleaning DB ${db}...`);
 
 mongoose.connect(`mongodb://localhost/${db}`, { useMongoClient: true }, (e, db) => {

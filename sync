@@ -56,7 +56,7 @@ const checkNetwork = () => {
             }
           }
           if (networkStatus.network !== network) {
-            const db = `proxy-directory-${network}${settings.version ? `-${settings.version}` : ''}`;
+            const db = `proxy-registry-${network}${settings.version ? `-${settings.version}` : ''}`;
             mongoose.connect(`mongodb://localhost/${db}`, { useMongoClient: true }, (e) => {
               if (!e) {
                 console.log(`Node synced from ${network} network. Initiating system...`);

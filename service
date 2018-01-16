@@ -14,7 +14,7 @@ process.argv.forEach((v, i) => {
   }
 });
 
-const db = `proxy-directory-${network}${settings.version ? `-${settings.version}` : ''}`;
+const db = `proxy-registry-${network}${settings.version ? `-${settings.version}` : ''}`;
 mongoose.connect(`mongodb://localhost/${db}`, { useMongoClient: true }, (e) => {
   if (!e) {
     var http = require('http');

@@ -1,5 +1,5 @@
 {
-  "name": "proxy-directory-service",
+  "name": "proxy-registry-service",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -16,11 +16,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gbalabasquer/proxy-directory.git"
+    "url": "git+https://github.com/gbalabasquer/proxy-registry.git"
   },
   "author": "",
   "bugs": {
-    "url": "https://github.com/gbalabasquer/proxy-directory/issues"
+    "url": "https://github.com/gbalabasquer/proxy-registry/issues"
   },
-  "homepage": "https://github.com/gbalabasquer/proxy-directory#readme"
+  "homepage": "https://github.com/gbalabasquer/proxy-registry#readme"
 }
